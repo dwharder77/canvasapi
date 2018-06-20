@@ -25,10 +25,10 @@ class Quiz(CanvasObject):
         :returns: The updated quiz.
         :rtype: :class:`canvasapi.quiz.Quiz`
         """
-        response = self._requester.request(
+        response = self._requester.request_json(
             'PUT',
             'courses/{}/quizzes/{}'.format(self.course_id, self.id),
-            _kwargs=combine_kwargs(**kwargs)
+            _kwargs=kwargs
         )
         quiz_json = response.json()
         quiz_json.update({'course_id': self.course_id})
