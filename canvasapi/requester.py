@@ -26,6 +26,78 @@ class Requester(object):
         self._session = requests.Session()
         self._cache = []
 
+    def request_json(
+            self, method, endpoint=None, headers=None, use_auth=True,
+            _url=None, _kwargs=None, **kwargs):
+        """
+        Make a request to the Canvas API and return the response.
+
+        :param method: The HTTP method for the request.
+        :type method: str
+        :param endpoint: The endpoint to call.
+        :type endpoint: str
+        :param headers: Optional HTTP headers to be sent with the request.
+        :type headers: dict
+        :param use_auth: Optional flag to remove the authentication
+            header from the request.
+        :type use_auth: bool
+        :param _url: Optional argument to send a request to a URL
+            outside of the Canvas API. If this is selected and an
+            endpoint is provided, the endpoint will be ignored and
+            only the _url argument will be used.
+        :type _url: str
+        :param _kwargs: A list of 2-tuples representing processed
+            keyword arguments to be sent to Canvas as params or data.
+        :type _kwargs: `list`
+        :rtype: str
+        """
+        full_url = _url if _url else "{}{}".format(self.base_url, endpoint)
+
+        if not headers:
+            headers = {}
+
+        if use_auth:
+            auth_header = {'Authorization': 'Bearer {}'.format(self.access_token)}
+            headers.update(auth_header)
+
+        json = _kwargs
+
+        # Determine the appropriate request method.
+        if method == 'GET':
+            raise CanvasException("API encountered an error processing your request")
+        elif method == 'POST':
+            req_method = self._post_request
+        elif method == 'DELETE':
+            raise CanvasException("API encountered an error processing your request")
+        elif method == 'PUT':
+            req_method = self._put_request
+
+        # Call the request method
+        response = req_method(full_url, headers, json=json)
+
+        # Add response to internal cache
+        if len(self._cache) > 4:
+            self._cache.pop()
+
+        self._cache.insert(0, response)
+
+        # Raise for status codes
+        if response.status_code == 400:
+            raise BadRequest(response.text)
+        elif response.status_code == 401:
+            if 'WWW-Authenticate' in response.headers:
+                raise InvalidAccessToken(response.json())
+            else:
+                raise Unauthorized(response.json())
+        elif response.status_code == 403:
+            raise Forbidden(response.text)
+        elif response.status_code == 404:
+            raise ResourceDoesNotExist('Not Found')
+        elif response.status_code == 500:
+            raise CanvasException("API encountered an error processing your request")
+
+        return response
+
     def request(
             self, method, endpoint=None, headers=None, use_auth=True,
             _url=None, _kwargs=None, **kwargs):
@@ -112,7 +184,7 @@ class Requester(object):
 
         return response
 
-    def _get_request(self, url, headers, params=None):
+    def _get_request(self, url, headers, params=None, json=None):
         """
         Issue a GET request to the specified endpoint with the data provided.
 
@@ -122,7 +194,7 @@ class Requester(object):
         """
         return self._session.get(url, headers=headers, params=params)
 
-    def _post_request(self, url, headers, data=None):
+    def _post_request(self, url, headers, data=None, json=None):
         """
         Issue a POST request to the specified endpoint with the data provided.
 
@@ -133,17 +205,18 @@ class Requester(object):
 
         # Grab file from data.
         file = None
-        for tup in data:
-            if tup[0] == 'file':
-                file = {'file': tup[1]}
-                break
+        if data is not None:
+            for tup in data:
+                if tup[0] == 'file':
+                    file = {'file': tup[1]}
+                    break
 
-        # Remove file entry from data.
-        data[:] = [tup for tup in data if tup[0] != 'file']
+            # Remove file entry from data.
+            data[:] = [tup for tup in data if tup[0] != 'file']
 
-        return self._session.post(url, headers=headers, data=data, files=file)
+        return self._session.post(url, headers=headers, data=data, json=json, files=file)
 
-    def _delete_request(self, url, headers, data=None):
+    def _delete_request(self, url, headers, data=None, json=None):
         """
         Issue a DELETE request to the specified endpoint with the data provided.
 
@@ -153,7 +226,7 @@ class Requester(object):
         """
         return self._session.delete(url, headers=headers, data=data)
 
-    def _put_request(self, url, headers, data=None):
+    def _put_request(self, url, headers, data=None, json=None):
         """
         Issue a PUT request to the specified endpoint with the data provided.
 
@@ -161,4 +234,4 @@ class Requester(object):
         :pararm headers: dict
         :param data: dict
         """
-        return self._session.put(url, headers=headers, data=data)
+        return self._session.put(url, headers=headers, data=data, json=json)

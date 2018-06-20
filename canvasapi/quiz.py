@@ -130,10 +130,10 @@ class Quiz(CanvasObject):
         :rtype: :class:`canvasapi.quiz.QuizQuestion`
         """
 
-        response = self._requester.request(
+        response = self._requester.request_json(
             'POST',
             'courses/{}/quizzes/{}/questions'.format(self.course_id, self.id),
-            _kwargs=combine_kwargs(**kwargs)
+            _kwargs=kwargs
         )
         response_json = response.json()
         response_json.update({'course_id': self.course_id})
@@ -280,14 +280,14 @@ class QuizQuestion(CanvasObject):
 
         :rtype: :class:`canvasapi.quiz.QuizQuestion`
         """
-        response = self._requester.request(
+        response = self._requester.request_json(
             'PUT',
             'courses/{}/quizzes/{}/questions/{}'.format(
                 self.course_id,
                 self.quiz_id,
                 self.id
             ),
-            _kwargs=combine_kwargs(**kwargs)
+            _kwargs=kwargs
         )
         response_json = response.json()
         response_json.update({'course_id': self.course_id})
